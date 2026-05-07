@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 from model import CharLSTM
+import argparse
+from tqdm import tqdm
 
 def train(data_path):
     
@@ -45,9 +47,10 @@ def train(data_path):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     # training loop
-    for epoch in range(len(epochs)):
+    for epoch in range(epochs):
         total_loss = 0
-        for x,y in loader:
+        progress_bar = tqdm(loader, desc=f"Epoch {epoch+1}/{epochs}")
+        for x, y in progress_bar:
             optimizer.zero_grad()
             output, _ = model(x)
             loss = criterion(output.view(-1, vocab_size), y.view(-1))
@@ -55,7 +58,11 @@ def train(data_path):
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             total_loss += loss.item()
-    print(f"Epoch {epoch+1}/{epochs} — Loss: {total_loss/len(loader):.4f}")
+            
+            # Update progress bar with current loss
+            progress_bar.set_postfix(loss=loss.item())
+        
+        print(f"Epoch {epoch+1}/{epochs} — Avg Loss: {total_loss/len(loader):.4f}")
 
 
     # save model
@@ -71,3 +78,9 @@ def train(data_path):
     }, "model.pt")
 
     print("Saved model.pt")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="train model with source data")
+    parser.add_argument("data_path", type=str, help="Path to the training data file")
+    args = parser.parse_args()
+    train(args.data_path)

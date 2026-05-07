@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-class CharLSTM(nn.module):
+class CharLSTM(nn.Module):
     def __init__(self, vocab_size, emb_dim, hidden_dim, num_layers):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, emb_dim)

@@ -1,215 +1,77 @@
-# Full-Stack ML App
+# LSTM Text Generation
 
-A full-stack application with a React frontend, Flask backend, and a PyTorch character-level language model — all containerised with Docker and deployed on AWS EC2.
+A character- and word-level LSTM language model that generates text from a seed prompt. Supports three tokenization strategies: character, whitespace, and BPE.
 
----
+## Files
 
-## Stack
+| File | Description |
+|---|---|
+| `model.py` | LSTM model definition |
+| `utils.py` | Tokenizer build/save/load helpers |
+| `train.py` | Training script |
+| `generate.py` | Text generation script |
 
-- **Frontend**: React (port 3000)
-- **Backend**: Flask (port 5001)
-- **Model**: PyTorch LSTM (character-level language model)
-- **Containerisation**: Docker + Docker Compose
-- **Hosting**: AWS EC2 (Ubuntu 24.04)
-
----
-
-## Project Structure
-
-```
-project/
-├── frontend/
-│   ├── Dockerfile
-│   ├── .env
-│   └── src/
-│       └── App.jsx
-├── backend/
-│   ├── Dockerfile
-│   ├── app.py
-│   └── requirements.txt
-├── model/
-│   ├── Dockerfile
-│   ├── app.py
-│   ├── model.py
-│   ├── predict.py
-│   ├── train.py
-│   ├── requirements.txt
-│   └── data/
-│       └── input.txt
-└── docker-compose.yml
-```
-
----
-
-## Local Development
-
-### Prerequisites
-
-- Docker + Docker Compose
-- Node.js 18+
-- Python 3.11+
-
-### 1. Clone the repo
+## Setup
 
 ```bash
-git clone https://github.com/you/your-repo.git
-cd your-repo
+pip install torch tokenizers tqdm
 ```
 
-### 2. Set up environment variables
-
-**`frontend/.env`**
-```
-REACT_APP_API_URL=http://localhost:5001
-REACT_APP_API_KEY=your-secret-key-here
-```
-
-**`model/.env`** (used when running without Docker)
-```
-API_KEY=your-secret-key-here
-```
-
-### 3. Train the model
-
-Add a plain text file to `model/data/input.txt`, then:
+## Training
 
 ```bash
-cd model
-pip install torch
-python train.py
+python train.py <data_path> --tokenization_type <type>
 ```
 
-This produces `model.pt` in the `model/` directory. Training takes a few minutes on CPU.
+**Arguments**
 
-### 4. Run with Docker Compose
+| Argument | Options | Default | Description |
+|---|---|---|---|
+| `data_path` | — | required | Path to a plain text file |
+| `--tokenization_type` | `char`, `whitespace`, `bpe` | `char` | Tokenization strategy |
+
+**Examples**
 
 ```bash
-docker-compose up --build
+# Character-level (good for stylistic/creative text)
+python train.py data.txt --tokenization_type char
+
+# Whitespace (word-level, no training required)
+python train.py data.txt --tokenization_type whitespace
+
+# BPE (subword, best for general text)
+python train.py data.txt --tokenization_type bpe
 ```
 
-- Frontend: http://localhost:3000
-- Backend: http://localhost:5001
+Training saves two files:
+- `model.pt` — model weights and vocabulary
+- `tokenizer.json` — BPE tokenizer (only for `bpe` mode)
 
----
-
-## API
-
-### `GET /`
-Health check.
-
-**Response**
-```
-Ok
-```
-
-### `POST /predict`
-Generate text from a seed string.
-
-**Headers**
-```
-Content-Type: application/json
-X-API-Key: your-secret-key-here
-```
-
-**Request body**
-```json
-{
-  "text": "The ",
-  "length": 200
-}
-```
-
-**Response**
-```json
-{
-  "text": "The generated text continues here..."
-}
-```
-
-**Error responses**
-- `400` — no seed text provided
-- `401` — missing or invalid API key
-
----
-
-## AWS EC2 Deployment
-
-### 1. Launch an EC2 instance
-
-- AMI: Ubuntu 24.04 LTS
-- Instance type: t2.micro
-- Create and download a `.pem` key pair
-
-### 2. Configure security group inbound rules
-
-| Port | Source    |
-|------|-----------|
-| 22   | Your IP   |
-| 3000 | 0.0.0.0/0 |
-| 5001 | 0.0.0.0/0 |
-
-### 3. SSH into the instance
+## Generation
 
 ```bash
-chmod 400 your-key.pem
-ssh -i your-key.pem ubuntu@your-ec2-public-ip
+python generate.py "<seed text>" --length <n> --temperature <t>
 ```
 
-### 4. Install Docker
+**Arguments**
+
+| Argument | Default | Description |
+|---|---|---|
+| `seed_text` | required | Text to seed the generation |
+| `--length` | `200` | Number of tokens to generate |
+| `--temperature` | `0.8` | Sampling temperature — lower is more conservative, higher is more creative |
+
+**Examples**
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y docker.io docker-compose
-sudo usermod -aG docker ubuntu
-newgrp docker
+python generate.py "Once upon a time"
+python generate.py "The quick brown" --length 500 --temperature 0.6
 ```
 
-### 5. Deploy
+## Tokenization strategies
 
-```bash
-git clone https://github.com/you/your-repo.git
-cd your-repo
-```
+**`char`** — splits text into individual characters. Best for learning fine-grained style and works well on small datasets. Generated output is joined without spaces.
 
-Update `frontend/.env` to point to the EC2 public IP:
-```
-REACT_APP_API_URL=http://your-ec2-public-ip:5001
-```
+**`whitespace`** — splits on whitespace. Simple word-level tokenization with no training step. Vocabulary can get large on diverse text.
 
-Then run:
-```bash
-docker-compose up --build -d
-```
-
-Visit `http://your-ec2-public-ip:3000`.
-
----
-
-## Common Gotchas
-
-- Flask must run with `host="0.0.0.0"` or it won't be reachable outside its container
-- `REACT_APP_API_URL` uses `localhost` locally and the EC2 public IP when deployed — update `.env` before deploying
-- `model.pt` must be present in the `model/` directory before building the Docker image
-- EC2 public IP changes every time the instance stops and starts — use an Elastic IP for a permanent address
-- Always use `http://` explicitly in the browser, not `https://`
-- Add `.env` to `.gitignore` so API keys are never pushed to Git
-
----
-
-## Security Notes
-
-- The API key is passed via the `X-API-Key` request header, never in the URL
-- Environment variables are used for all secrets — nothing is hardcoded
-- `REACT_APP_API_KEY` is baked into the frontend bundle at build time — in production, proxy requests through your own backend so the key never reaches the browser
-
----
-
-## Next Steps
-
-This project is a foundation for deploying a LaBSE-based model. To extend it:
-
-1. Replace the `CharLSTM` in `model/` with your LaBSE-based PyTorch model
-2. Update the `predict()` function to match your model's input/output format
-3. Add nginx as a reverse proxy to consolidate ports 3000 and 5001 behind port 80
-4. Use AWS ECS + ECR instead of a bare EC2 instance for production container hosting
-5. Set up a CI/CD pipeline with GitHub Actions to automate deployment on push
+**`bpe`** — byte-pair encoding via the `tokenizers` library. Learns a subword vocabulary of 2000 tokens from the training data. Best general-purpose choice for larger datasets.

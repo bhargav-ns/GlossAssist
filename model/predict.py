@@ -1,25 +1,31 @@
 import torch
-from model import CharLSTM
 import argparse
+from model import LSTM
+from utils import load_tokenizer
 
-def load_model(path = "model.pt"):
+
+def load_model(path="model.pt"):
     checkpoint = torch.load(path, map_location="cpu")
-    model = CharLSTM(
+    model = LSTM(
         checkpoint["vocab_size"],
-        checkpoint["embed_dim"],
+        checkpoint["emb_dim"],
         checkpoint["hidden_dim"],
         checkpoint["num_layers"]
     )
-
     model.load_state_dict(checkpoint["model_state"])
     model.eval()
-    return model, checkpoint["char_to_idx"], checkpoint["idx_to_char"]
-    
 
-def predict(model, char_to_idx, idx_to_char, seed_text, length = 200, temperature = 0.8):
-    chars = [char_to_idx.get(c) for c in seed_text]
-    chars = [c for c in chars if c is not None]
-    input_tensor = torch.tensor([chars], dtype = torch.long)
+    tokenization_type = checkpoint["tokenization_type"]
+    tokenizer_path = checkpoint.get("tokenizer_path")
+    tokenize = load_tokenizer(tokenization_type, tokenizer_path)
+
+    return model, checkpoint["token_to_idx"], checkpoint["idx_to_token"], tokenize
+
+
+def predict(model, token_to_idx, idx_to_token, tokenize, seed_text, length=200, temperature=0.8):
+    tokens = [token_to_idx.get(t) for t in tokenize(seed_text)]
+    tokens = [t for t in tokens if t is not None]
+    input_tensor = torch.tensor([tokens], dtype=torch.long)
 
     generated = seed_text
     hidden = None
@@ -28,17 +34,22 @@ def predict(model, char_to_idx, idx_to_char, seed_text, length = 200, temperatur
         for _ in range(length):
             output, hidden = model(input_tensor, hidden)
             logits = output[0, -1] / temperature
-            probs = torch.softmax(logits, dim = 0)
+            probs = torch.softmax(logits, dim=0)
             next_idx = torch.multinomial(probs, 1).item()
-            generated += idx_to_char[next_idx]
-            input_tensor = torch.tensor([[next_idx]], dtype = torch.long)
+            next_token = idx_to_token[next_idx]
+            generated += "" if tokenize == list else " "
+            generated += next_token
+            input_tensor = torch.tensor([[next_idx]], dtype=torch.long)
 
     return generated
 
-if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description = "Input sentence")
-    parser.add_argument("seed_text", type = str, help = "Input text to be used for generation")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("seed_text", type=str)
+    parser.add_argument("--temperature", type=float, default=0.8)
+    parser.add_argument("--length", type=int, default=200)
     args = parser.parse_args()
-    model, char_to_idx, idx_to_char = load_model()
-    print(predict(model, char_to_idx, idx_to_char, args.seed_text))
+
+    model, token_to_idx, idx_to_token, tokenize = load_model()
+    print(predict(model, token_to_idx, idx_to_token, tokenize, args.seed_text, args.length, args.temperature))

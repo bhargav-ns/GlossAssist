@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-from model import LSTM
-from utils import build_tokenizer, save_tokenizer
+from model.model import LSTM
+from model.utils import build_tokenizer, save_tokenizer
 
 
 def train(data_path, tokenization_type="char"):

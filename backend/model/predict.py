@@ -1,7 +1,8 @@
+import os
 import torch
 import argparse
-from model import LSTM
-from utils import load_tokenizer
+from model.model import LSTM
+from model.utils import load_tokenizer
 
 
 def load_model(path="model.pt"):
@@ -17,8 +18,10 @@ def load_model(path="model.pt"):
 
     tokenization_type = checkpoint["tokenization_type"]
     tokenizer_path = checkpoint.get("tokenizer_path")
-    tokenize = load_tokenizer(tokenization_type, tokenizer_path)
+    if tokenizer_path:
+        tokenizer_path = os.path.join(os.path.dirname(os.path.abspath(path)), tokenizer_path)
 
+    tokenize = load_tokenizer(tokenization_type, tokenizer_path)
     return model, checkpoint["token_to_idx"], checkpoint["idx_to_token"], tokenize
 
 

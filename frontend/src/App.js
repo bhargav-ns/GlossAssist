@@ -343,39 +343,7 @@ const handleTrain = async () => {
             {trainingLoading ? "Training..." : "Start training"}
           </button>
         </div>
-        <div className="file-row">
-          <label className="file-input-label">
-            <input
-              type="file"
-              onChange={(e) => setTrainingFile(e.target.files[0])}
-              accept=".txt"
-              hidden
-            />
-            Choose .txt file
-          </label>
-          <button
-            className="btn btn-secondary"
-            onClick={handleUploadFile}
-            disabled={!trainingFile || uploadLoading}
-          >
-            {uploadLoading ? "Uploading..." : "Upload file"}
-          </button>
-          <button
-            className="btn"
-            onClick={handleTrain}
-            disabled={!fileUploaded || trainingLoading}
-          >
-            {trainingLoading ? "Training..." : "Start training"}
-          </button>
-        </div>
-        {trainingFile && (
-          <p className="file-name">Selected: {trainingFile.name}</p>
-        )}
-        {fileUploaded && (
-          <p className="status-pill status-ready">
-            File uploaded, ready to train
-          </p>
-        )}
+        
       </div>
     </div>
   );
